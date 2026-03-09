@@ -47,6 +47,10 @@ public class TopicoController {
                         return cursoRepository.save(novo);
                     });
 
+            if (authentication == null || !authentication.isAuthenticated()) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+
             String login = authentication.getName();
             Usuario autor = (Usuario) usuarioRepository.findByLogin(login);
 
@@ -121,14 +125,16 @@ public class TopicoController {
 
         var topico = topicoOpt.get();
 
-        // (opcional, mas recomendado) só o autor pode atualizar
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body("Você precisa estar autenticado para cadastrar um tópico.");
+        }
+
         String login = authentication.getName();
         if (!topico.getAutor().getLogin().equals(login)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Apenas o autor pode atualizar este tópico.");
         }
 
-        // Regra do cadastro: não permitir duplicado
-        // Importante: se o usuário não mudou nada, não deve dar conflito
         boolean mudou = !topico.getTitulo().equals(dados.titulo()) || !topico.getMensagem().equals(dados.mensagem());
         if (mudou && topicoRepository.existsByTituloAndMensagem(dados.titulo(), dados.mensagem())) {
             return ResponseEntity.status(HttpStatus.CONFLICT)
@@ -154,7 +160,10 @@ public class TopicoController {
 
         var topico = topicoOpt.get();
 
-        // (recomendado) só o autor pode excluir
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
         String login = authentication.getName();
         if (!topico.getAutor().getLogin().equals(login)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Apenas o autor pode excluir este tópico.");
