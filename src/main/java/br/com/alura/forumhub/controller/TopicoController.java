@@ -64,7 +64,17 @@ public class TopicoController {
 
             Topico salvo = topicoRepository.save(topico);
 
-            return ResponseEntity.status(HttpStatus.CREATED).body(salvo);
+            var dto = new DadosDetalhamentoTopico(
+                    salvo.getId(),
+                    salvo.getTitulo(),
+                    salvo.getMensagem(),
+                    salvo.getDataCriacao(),
+                    salvo.getStatus(),
+                    salvo.getAutor().getLogin(),
+                    salvo.getCurso().getNome()
+            );
+
+            return ResponseEntity.status(HttpStatus.CREATED).body(dto);
 
 
     }
@@ -82,7 +92,7 @@ public class TopicoController {
                         t.getMensagem(),
                         t.getDataCriacao(),
                         t.getStatus(),
-                        t.getAutor().getLogin(),  // devolve só o login (não expõe senha)
+                        t.getAutor().getLogin(),
                         t.getCurso().getNome()
                 ))
                 .toList();
@@ -146,7 +156,18 @@ public class TopicoController {
 
         var atualizado = topicoRepository.save(topico);
 
-        return ResponseEntity.ok(atualizado);
+        var dto = new DadosDetalhamentoTopico(
+                atualizado.getId(),
+                atualizado.getTitulo(),
+                atualizado.getMensagem(),
+                atualizado.getDataCriacao(),
+                atualizado.getStatus(),
+                atualizado.getAutor().getLogin(),
+                atualizado.getCurso().getNome()
+        );
+
+        return ResponseEntity.ok(dto);
+
     }
 
     @DeleteMapping("/{id}")
