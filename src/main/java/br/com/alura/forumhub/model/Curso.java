@@ -1,6 +1,7 @@
 package br.com.alura.forumhub.model;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -23,4 +24,7 @@ public class Curso {
 
     @OneToMany(mappedBy = "curso", cascade = CascadeType.ALL)
     private List<Topico> topicos = new ArrayList<>();
+
+    public Curso(@NotBlank String curso) {
+    }
 }

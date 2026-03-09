@@ -1,6 +1,9 @@
 package br.com.alura.forumhub.controller;
 
+import br.com.alura.forumhub.dto.DadosAtualizarTopico;
 import br.com.alura.forumhub.dto.DadosCadastrarTopico;
+import br.com.alura.forumhub.dto.DadosDetalhamentoTopico;
+import br.com.alura.forumhub.dto.DadosListagemTopico;
 import br.com.alura.forumhub.model.Curso;
 import br.com.alura.forumhub.model.StatusTopico;
 import br.com.alura.forumhub.model.Topico;
@@ -12,12 +15,10 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @RestController
 @RequestMapping("/topicos")
@@ -40,8 +41,11 @@ public class TopicoController {
                     .body("Já existe um tópico com o mesmo título e mensagem.");
         } else {
             Curso curso = cursoRepository.findByNome(dadosCadastrarTopico.curso())
-                    .orElseThrow(() -> new
-                            IllegalAccessException("Curso não encontrado: " + dadosCadastrarTopico.curso()));
+                    .orElseGet(() -> {
+                        Curso novo = new Curso();
+                        novo.setNome(dadosCadastrarTopico.curso());
+                        return cursoRepository.save(novo);
+                    });
 
             String login = authentication.getName();
             Usuario autor = (Usuario) usuarioRepository.findByLogin(login);
@@ -60,5 +64,104 @@ public class TopicoController {
 
 
     }
+
+    }
+
+    @GetMapping
+    public ResponseEntity<List<DadosListagemTopico>> listarTopicos() {
+        var topicos = topicoRepository.findAll();
+
+        var dto = topicos.stream()
+                .map(t -> new DadosListagemTopico(
+                        t.getId(),
+                        t.getTitulo(),
+                        t.getMensagem(),
+                        t.getDataCriacao(),
+                        t.getStatus(),
+                        t.getAutor().getLogin(),  // devolve só o login (não expõe senha)
+                        t.getCurso().getNome()
+                ))
+                .toList();
+
+        return ResponseEntity.ok(dto);
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<?> detalharTopico(@PathVariable Long id) {
+        var topicoOpt = topicoRepository.findById(id);
+
+        if (topicoOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Tópico não encontrado.");
+        }
+
+        var t = topicoOpt.get();
+
+        var dto = new DadosDetalhamentoTopico(
+                t.getId(),
+                t.getTitulo(),
+                t.getMensagem(),
+                t.getDataCriacao(),
+                t.getStatus(),
+                t.getAutor().getLogin(),
+                t.getCurso().getNome()
+        );
+
+        return ResponseEntity.ok(dto);
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<?> atualizarTopico(@PathVariable Long id,
+                                             @RequestBody @Valid DadosAtualizarTopico dados,
+                                             Authentication authentication) {
+
+        var topicoOpt = topicoRepository.findById(id);
+        if (topicoOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Tópico não encontrado.");
+        }
+
+        var topico = topicoOpt.get();
+
+        // (opcional, mas recomendado) só o autor pode atualizar
+        String login = authentication.getName();
+        if (!topico.getAutor().getLogin().equals(login)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Apenas o autor pode atualizar este tópico.");
+        }
+
+        // Regra do cadastro: não permitir duplicado
+        // Importante: se o usuário não mudou nada, não deve dar conflito
+        boolean mudou = !topico.getTitulo().equals(dados.titulo()) || !topico.getMensagem().equals(dados.mensagem());
+        if (mudou && topicoRepository.existsByTituloAndMensagem(dados.titulo(), dados.mensagem())) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body("Já existe um tópico com o mesmo título e mensagem.");
+        }
+
+        topico.setTitulo(dados.titulo());
+        topico.setMensagem(dados.mensagem());
+
+        var atualizado = topicoRepository.save(topico);
+
+        return ResponseEntity.ok(atualizado);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> excluirTopico(@PathVariable Long id,
+                                           Authentication authentication) {
+
+        var topicoOpt = topicoRepository.findById(id);
+        if (topicoOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Tópico não encontrado.");
+        }
+
+        var topico = topicoOpt.get();
+
+        // (recomendado) só o autor pode excluir
+        String login = authentication.getName();
+        if (!topico.getAutor().getLogin().equals(login)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Apenas o autor pode excluir este tópico.");
+        }
+
+        topicoRepository.deleteById(id);
+
+        return ResponseEntity.noContent().build(); // 204
     }
 }
